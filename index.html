@@ -1,7 +1,7 @@
  <!DOCTYPE html>
  <html>
  <head>
-  <title>Simple Chat</title>
+  <title>Chat Application with Image Upload</title>
   <style>
   #chat-box {
   width: 400px;
@@ -9,16 +9,32 @@
   border: 1px solid #ccc;
   overflow-y: scroll;
   padding: 10px;
+  margin-bottom: 10px;
   }
  
 
   #message-input {
   width: 300px;
+  padding: 5px;
+  margin-right: 10px;
+  }
+ 
+
+  .message {
+  margin-bottom: 5px;
+  padding: 5px;
+  border-bottom: 1px solid #eee;
+  }
+ 
+
+  .message img {
+  max-width: 100px;
+  max-height: 100px;
   }
   </style>
  </head>
  <body>
-  <h1>Simple Chat</h1>
+  <h1>Chat Application</h1>
  
 
   <div id="chat-box">
@@ -27,35 +43,66 @@
  
 
   <input type="text" id="message-input" placeholder="Type your message...">
+  <input type="file" id="image-input" accept="image/*">
   <button onclick="sendMessage()">Send</button>
  
 
+  <script src="/socket.io/socket.io.js"></script>
   <script>
   const chatBox = document.getElementById('chat-box');
   const messageInput = document.getElementById('message-input');
+  const imageInput = document.getElementById('image-input');
+  const socket = io();
  
 
   // Function to send a message
   function sendMessage() {
   const messageText = messageInput.value;
-  if (messageText.trim() !== '') {
-  // Create a new message element
-  const messageElement = document.createElement('div');
-  messageElement.textContent = messageText;
+  const imageFile = imageInput.files[0];
  
 
-  // Add the message to the chat box
-  chatBox.appendChild(messageElement);
+  if (messageText.trim() === '' && !imageFile) {
+  return; // Don't send if both message and image are empty
+  }
+ 
+
+  // Convert image to base64 if an image is selected
+  if (imageFile) {
+  const reader = new FileReader();
+  reader.onload = function (event) {
+  const imageData = event.target.result;
+  // Emit the message and image data to the server
+  socket.emit('new_message', { message: messageText, image: imageData });
+  };
+  reader.readAsDataURL(imageFile);
+  } else {
+  // Emit the message to the server with no image
+  socket.emit('new_message', { message: messageText, image: null });
+  }
  
 
   // Clear the input
   messageInput.value = '';
+  imageInput.value = ''; // Reset the image input
+  }
  
 
-  // Scroll to the bottom of the chat
+  // Listen for incoming messages
+  socket.on('new_message', (data) => {
+  const messageElement = document.createElement('div');
+  messageElement.classList.add('message');
+ 
+
+  let content = `<strong>${data.socket_id}:</strong> ${data.message}`;
+  if (data.image) {
+  content += `<br><img src="${data.image}" alt="Image">`;
+  }
+ 
+
+  messageElement.innerHTML = content;
+  chatBox.appendChild(messageElement);
   chatBox.scrollTop = chatBox.scrollHeight;
-  }
-  }
+  });
  
 
   // Optional: Send message on pressing Enter
@@ -67,46 +114,4 @@
   </script>
  </body>
  </html>
-// [PREVIEW_SIZE:400x300]
-const express = require('express');
-const http = require('http');
-const socketIO = require('socket.io');
 
-
-const app = express();
-const server = http.createServer(app);
-const io = socketIO(server);
-
-
-const port = process.env.PORT || 3000;
-
-
-// Serve static files from the public directory
-app.use(express.static('public'));
-
-
-// Socket.IO connection handler
-io.on('connection', (socket) => {
- console.log('User connected:', socket.id);
-
-
- // Listen for new messages
- socket.on('new_message', (message) => {
- // Broadcast the message to all connected clients
- io.emit('new_message', {
- message: message,
- socket_id: socket.id
- });
- });
-
-
- // Handle disconnection
- socket.on('disconnect', () => {
- console.log('User disconnected:', socket.id);
- });
-});
-
-
-server.listen(port, () => {
- console.log(`Server running on port ${port}`);
-});
