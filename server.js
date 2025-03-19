@@ -1,37 +1,30 @@
-// [PREVIEW_SIZE:400x300]
+// server.js
 const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
-
-
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
-
-
 const port = process.env.PORT || 3000;
 
 
-// Serve static files from the public directory
 app.use(express.static('public'));
 
 
-// Socket.IO connection handler
 io.on('connection', (socket) => {
  console.log('User connected:', socket.id);
 
 
- // Listen for new messages
- socket.on('new_message', (message) => {
+ socket.on('new_message', (data) => {
  // Broadcast the message to all connected clients
  io.emit('new_message', {
- message: message,
+ message: data.message,
+ image: data.image, // Include image data
  socket_id: socket.id
  });
  });
 
 
- // Handle disconnection
  socket.on('disconnect', () => {
  console.log('User disconnected:', socket.id);
  });
